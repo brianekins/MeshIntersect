@@ -1,0 +1,12 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"addin",
+	"id":	"30622784-7909-4d64-9f64-c5d58a06172c",
+	"author":	"Brian Ekins",
+	"description":	{
+		"":	"Creates sketch geometry that is the intersection of selected mesh bodies and the x-y plane of the active sketch."
+	},
+	"version":	"1.0",
+	"runOnStartup":	true,
+	"supportedOS":	"windows|mac"
+}
