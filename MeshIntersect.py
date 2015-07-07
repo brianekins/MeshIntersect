@@ -121,36 +121,39 @@ class MeshIntersectCommandExecutedEventHandler(adsk.core.CommandEventHandler):
             # Process each selected mesh body.
             for meshBody in meshBodies:
                 loops = calculateIntersection(meshBody, sketch, True, optimizeLines)
-        
-                sketch.isComputeDeferred = True
-                lines = sketch.sketchCurves.sketchLines
-                for loop in loops:
-                    if loop.isConnected:
-                        isFirstPoint = True
-                        isFirstLine = True
-                        for point in loop.points:
-                            if isFirstPoint == True:
-                                lastPoint = point.copy()
-                                isFirstPoint = False
-                            else:
-                                if isFirstLine:
-                                    lastLine = lines.addByTwoPoints(adsk.core.Point3D.create(lastPoint.x, lastPoint.y, lastPoint.z),
-                                                                    adsk.core.Point3D.create(point.x, point.y, point.z))
-                                    firstLine = lastLine
-                                    isFirstLine = False
+                
+                if loops == None:
+                    ui.messageBox("No intersection was found between the active sketch's\nx-y plane and the selected mesh body(s).", 'No Intersection')
+                else:
+                    sketch.isComputeDeferred = True
+                    lines = sketch.sketchCurves.sketchLines
+                    for loop in loops:
+                        if loop.isConnected:
+                            isFirstPoint = True
+                            isFirstLine = True
+                            for point in loop.points:
+                                if isFirstPoint == True:
+                                    lastPoint = point.copy()
+                                    isFirstPoint = False
                                 else:
-                                    lastLine = lines.addByTwoPoints(lastLine.endSketchPoint, adsk.core.Point3D.create(point.x, point.y, point.z))
-                                    
-                        if loop.isClosed:
-                            lastLine = lines.addByTwoPoints(lastLine.endSketchPoint, firstLine.startSketchPoint)
-                    else:
-                        for i in range(0, int(len(loop.points)/2)-1):
-                            pnt1 = loop.points[i*2]
-                            pnt2 = loop.points[i*2+1]
-                            lines.addByTwoPoints(adsk.core.Point3D.create(pnt1.x, pnt1.y, pnt1.z),
-                                                 adsk.core.Point3D.create(pnt2.x, pnt2.y, pnt2.z))               
-                                                
-                sketch.isComputeDeferred = False
+                                    if isFirstLine:
+                                        lastLine = lines.addByTwoPoints(adsk.core.Point3D.create(lastPoint.x, lastPoint.y, lastPoint.z),
+                                                                        adsk.core.Point3D.create(point.x, point.y, point.z))
+                                        firstLine = lastLine
+                                        isFirstLine = False
+                                    else:
+                                        lastLine = lines.addByTwoPoints(lastLine.endSketchPoint, adsk.core.Point3D.create(point.x, point.y, point.z))
+                                        
+                            if loop.isClosed:
+                                lastLine = lines.addByTwoPoints(lastLine.endSketchPoint, firstLine.startSketchPoint)
+                        else:
+                            for i in range(0, int(len(loop.points)/2)-1):
+                                pnt1 = loop.points[i*2]
+                                pnt2 = loop.points[i*2+1]
+                                lines.addByTwoPoints(adsk.core.Point3D.create(pnt1.x, pnt1.y, pnt1.z),
+                                                     adsk.core.Point3D.create(pnt2.x, pnt2.y, pnt2.z))               
+                                                    
+                    sketch.isComputeDeferred = False
         except:
             if ui:
                 ui.messageBox('Unexpected failure.', 'Intersect Mesh Body')
@@ -313,14 +316,6 @@ def calculateIntersection(mesh, sketch, connectLoops, clean):
             lineSeg1 = MyLine(sideOnePoint1, sideTwoPoint)
             lineSeg2 = MyLine(sideOnePoint2, sideTwoPoint)
             
-#==============================================================================
-#             app = adsk.core.Application.get()
-#             design = app.activeProduct
-#             sketch = design.rootComponent.sketches.itemByName('Model')
-#             sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(sideOnePoint1.x, sideOnePoint1.y, sideOnePoint1.z), adsk.core.Point3D.create(sideTwoPoint.x, sideTwoPoint.y, sideTwoPoint.z))
-#             sketch.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(sideOnePoint2.x, sideOnePoint2.y, sideOnePoint2.z), adsk.core.Point3D.create(sideTwoPoint.x, sideTwoPoint.y, sideTwoPoint.z))
-#==============================================================================
-            
             # Intersect the lines with the X-Y plane.
             intResult1 = lineXYPlaneIntersection(lineSeg1)
             intResult2 = lineXYPlaneIntersection(lineSeg2)
@@ -329,7 +324,9 @@ def calculateIntersection(mesh, sketch, connectLoops, clean):
             if intResult1.distanceTo(intResult2) > .000001:
                 intersectionLines.append(MyLine(intResult1, intResult2))
 
-    if connectLoops:
+    if len(intersectionLines) == 0:
+        return None
+    elif connectLoops:
         # Process the lines so they're in a nice connected order and grouped
         # by loops.
         intersectionLoops = createSectionLoops(intersectionLines, clean)
@@ -351,7 +348,6 @@ def calculateIntersection(mesh, sketch, connectLoops, clean):
 # Given a list of lines that represent the intersection this cleans them up so they're
 # in head-to-tail connected loops.  It returns a list of sectionLoop objects.
 def createSectionLoops(intersectionLines, clean):
-    print('Line count: ' + str(len(intersectionLines)))
     for i in range(0,len(intersectionLines)):
         line = intersectionLines[i]
 
@@ -575,7 +571,17 @@ class MyVector:
     # Calculate the dot product of two vectors.
     def dotProduct(self, vec):
         return (self.x * vec.x + self.y * vec.y + self.z * vec.z)
-        
+
+    # Calculate the angle between two vectors.        
+    def angleTo(self, vec):
+        dotProd = self.dotProduct(vec)
+        val = dotProd / (self.length() * vec.length())
+        if val < -1.0:
+            val = -1.0
+        elif val > 1.0:
+            val = 1.0
+        return math.acos(val)
+
     # Add two vectors.
     def add(self, vec):
         return MyVector(self.x + vec.x, self.y + vec.y, self.z + vec.z)
@@ -737,7 +743,8 @@ class SectionLoop:
             vector1.normalize()
             vector2 = MyVector(endCheckPoint.x - midCheckPoint.x, endCheckPoint.y - midCheckPoint.y, endCheckPoint.z - midCheckPoint.z)
             vector2.normalize()
-            angle = math.acos(vector1.x * vector2.x + vector1.y * vector2.y + vector1.z * vector2.z)
+            angle = vector1.angleTo(vector2)
+ 
 
             # Check to see if the angle is within tolerance to 180 degrees.
             if math.fabs(math.pi - angle) < 0.0001:
@@ -760,6 +767,7 @@ class SectionLoop:
             self.removePoint(extraPoints[i])
         
         self._setStartAndEndPoints()
+        
 
     
     
