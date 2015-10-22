@@ -1,3 +1,5 @@
+#Author-Brian Ekins
+#Description-Creates sketch geometry that is the intersection of selected mesh bodies and the x-y plane of the active sketch.
 # (C) Copyright 2015 by Autodesk, Inc.
 # Permission to use, copy, modify, and distribute this software in object code form 
 # for any purpose and without fee is hereby granted, provided that the above copyright 
@@ -37,22 +39,11 @@ def run(context):
         # Get the SKETCH toolbar panel. 
         sketchPanel = ui.allToolbarPanels.itemById('SketchPanel')
         
-        # Get the "Project/Include" drop-down.  Because the drop-downs created by Fusion don't
-        # currently have ID's this looks for the drop-down that contains the Intersect command.
-        controlAdded = False
-        for cntrl in sketchPanel.controls:
-            if not controlAdded:
-                # Look for drop-down controls.
-                if cntrl.objectType == adsk.core.DropDownControl.classType():
-                    # Check to see if this drop-downn contains the Intersect command.
-                    for subCntrl in cntrl.controls:
-                        if subCntrl.id == 'IntersectCmd':
-                            # Add the mesh body section command below the Intersect command.
-                            cntrl.controls.addCommand(meshIntersectButton, 'IntersectCmd', True)
-                            controlAdded = True
-                            break
-            else:
-                break
+        # Get the "Project/Include" drop-down.  
+        projDropDown = sketchPanel.controls.itemById('ProjectIncludeDropDown')
+        
+        # Add the mesh body section command below the Intersect command.
+        projDropDown.controls.addCommand(meshIntersectButton, 'IntersectCmd', True)
     except:
         if ui:
             ui.messageBox('Unexpected failure.', 'Intersect Mesh Body')
@@ -69,22 +60,13 @@ def stop(context):
         # Get the SKETCH toolbar panel. 
         sketchPanel = ui.allToolbarPanels.itemById('SketchPanel')
         
-        # Get the "Project/Include" drop-down.  Because the drop-downs created by Fusion don't
-        # currently have ID's this looks for the drop-down that contains the Intersect command.
-        controlDeleted = False
-        for cntrl in sketchPanel.controls:
-            if not controlDeleted:                
-                # Look for drop-down controls.
-                if cntrl.objectType == adsk.core.DropDownControl.classType():
-                    # Check to see if this drop-downn contains the Intersect command.
-                    for subControl in cntrl.controls:
-                        if subControl.id == 'meshIntersect':
-                            # Delete the control.
-                            subControl.deleteMe()
-                            controlDeleted = True
-                            break
-            else:
-                break
+        # Get the "Project/Include" drop-down.  
+        projDropDown = sketchPanel.controls.itemById('ProjectIncludeDropDown')
+        
+        # Get the meshIntersect control.
+        meshCntrl = projDropDown.controls.itemById('meshIntersect')
+        if meshCntrl:
+            meshCntrl.deleteMe()
         
         meshInterectCommandDef = ui.commandDefinitions.itemById('meshIntersect')
         if meshInterectCommandDef:
